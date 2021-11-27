@@ -1,6 +1,14 @@
+import 'dart:convert';
 import 'dart:math';
 
+import 'package:chopper/chopper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_recipes_with_pref_data/network/model_response.dart';
+import 'package:flutter_recipes_with_pref_data/network/recipe_model.dart';
+import 'package:flutter_recipes_with_pref_data/network/recipe_service.dart';
+import 'package:flutter_recipes_with_pref_data/ui/recipe_card.dart';
+import 'package:flutter_recipes_with_pref_data/ui/recipes/recipe_details.dart';
 import 'package:flutter_recipes_with_pref_data/ui/widgets/custom_dropdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,7 +23,7 @@ class _RecipeListState extends State<RecipeList> {
   static const String prefSearchKey = 'previousSearches';
   late TextEditingController searchTextController;
   final ScrollController _scrollController = ScrollController();
-  List currentSearchList = [];
+  List<APIHits> currentSearchList = [];
   int currentCount = 0;
   int currentStartPosition = 0;
   int currentEndPosition = 20;
@@ -187,9 +195,99 @@ class _RecipeListState extends State<RecipeList> {
     if (searchTextController.text.length < 3) {
       return Container();
     }
-    // Show a loading indicator while waiting for the movies
-    return const Center(
-      child: CircularProgressIndicator(),
+
+    return FutureBuilder<Response<Result<APIRecipeQuery>>>(
+      future: RecipeService.create().queryRecipes(
+          searchTextController.text.trim(),
+          currentStartPosition,
+          currentEndPosition),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                snapshot.error.toString(),
+                textAlign: TextAlign.center,
+                textScaleFactor: 1.3,
+              ),
+            );
+          }
+
+          loading = false;
+          //snapshot.data is now a Response and not a string anymore.
+          //The body field is either the Success or Error that you defined above.
+          //Extract the value of body into result.
+          final result = snapshot.data?.body;
+          //If result is an error, return the current list of recipes.
+          if (result is Error) {
+            inErrorState = true;
+            return _buildRecipeList(context, currentSearchList);
+          }
+
+          //Since result passed the error check, cast it as Success and extract its value into query.
+          final query = (result as Success).value;
+
+          inErrorState = false;
+
+          if (query != null) {
+            currentCount = query.count;
+            hasMore = query.more;
+            currentSearchList.addAll(query.hits);
+
+            if (query.to < currentEndPosition) {
+              currentEndPosition = query.to;
+            }
+          }
+
+          return _buildRecipeList(context, currentSearchList);
+        } else {
+          if (currentCount == 0) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            return _buildRecipeList(context, currentSearchList);
+          }
+        }
+      },
+    );
+  }
+
+  Widget _buildRecipeList(BuildContext recipeListContext, List<APIHits> hits) {
+    final size = MediaQuery.of(context).size;
+    const itemHeight = 310;
+    final itemWidth = size.width / 2;
+
+    return Flexible(
+      child: GridView.builder(
+        controller: _scrollController,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: (itemWidth / itemHeight),
+        ),
+        itemCount: hits.length,
+        itemBuilder: (context, index) {
+          return _buildRecipeCard(recipeListContext, hits, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildRecipeCard(
+      BuildContext topLevelContext, List<APIHits> hits, int index) {
+    final recipe = hits[index].recipe;
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          topLevelContext,
+          MaterialPageRoute(
+            builder: (context) {
+              return const RecipeDetails();
+            },
+          ),
+        );
+      },
+      child: recipeCard(recipe),
     );
   }
 }
