@@ -4,12 +4,14 @@ import 'dart:math';
 import 'package:chopper/chopper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_recipes_with_pref_data/data/models/recipe.dart';
+import 'package:flutter_recipes_with_pref_data/network/service_interface.dart';
 import 'package:flutter_recipes_with_pref_data/network/model_response.dart';
 import 'package:flutter_recipes_with_pref_data/network/recipe_model.dart';
-import 'package:flutter_recipes_with_pref_data/network/recipe_service.dart';
 import 'package:flutter_recipes_with_pref_data/ui/recipe_card.dart';
 import 'package:flutter_recipes_with_pref_data/ui/recipes/recipe_details.dart';
 import 'package:flutter_recipes_with_pref_data/ui/widgets/custom_dropdown.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RecipeList extends StatefulWidget {
@@ -33,6 +35,8 @@ class _RecipeListState extends State<RecipeList> {
   bool inErrorState = false;
   var previousSearches = <String>[];
 
+//You use initstate() for one-time work, like initializing text controllers.
+//Then you use setState() to change state, triggering a rebuild of the widget with the new state.
   @override
   void initState() {
     super.initState();
@@ -197,7 +201,7 @@ class _RecipeListState extends State<RecipeList> {
     }
 
     return FutureBuilder<Response<Result<APIRecipeQuery>>>(
-      future: RecipeService.create().queryRecipes(
+      future: Provider.of<ServiceInterface>(context).queryRecipes(
           searchTextController.text.trim(),
           currentStartPosition,
           currentEndPosition),
@@ -282,7 +286,17 @@ class _RecipeListState extends State<RecipeList> {
           topLevelContext,
           MaterialPageRoute(
             builder: (context) {
-              return const RecipeDetails();
+              final detailRecipe = Recipe(
+                  label: recipe.label,
+                  image: recipe.image,
+                  url: recipe.url,
+                  calories: recipe.calories,
+                  totalTime: recipe.totalTime,
+                  totalWeight: recipe.totalWeight);
+
+              detailRecipe.ingredients = convertIngredients(recipe.ingredients);
+
+              return RecipeDetails(recipe: detailRecipe);
             },
           ),
         );

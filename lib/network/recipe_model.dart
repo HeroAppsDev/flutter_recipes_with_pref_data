@@ -1,3 +1,4 @@
+import 'package:flutter_recipes_with_pref_data/data/models/models.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'recipe_model.g.dart';
@@ -97,4 +98,18 @@ class APIIngredients {
       _$APIIngredientsFromJson(json);
 
   Map<String, dynamic> toJson() => _$APIIngredientsToJson(this);
+}
+
+List<Ingredient> convertIngredients(List<APIIngredients> apiIngredients) {
+  //Create a new list of ingredients to return.
+  final ingredients = <Ingredient>[];
+
+  //Convert each APIIngredients into an instance of Ingredient and add it to the list.
+  for (var ingredient in apiIngredients) {
+    ingredients.add(
+      Ingredient(name: ingredient.name, weight: ingredient.weight),
+    );
+  }
+
+  return ingredients;
 }

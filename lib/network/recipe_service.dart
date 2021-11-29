@@ -2,6 +2,7 @@ import 'package:chopper/chopper.dart';
 import 'package:flutter_recipes_with_pref_data/network/model_converter.dart';
 import 'package:flutter_recipes_with_pref_data/network/recipe_model.dart';
 
+import 'service_interface.dart';
 import 'model_response.dart';
 
 part 'recipe_service.chopper.dart';
@@ -11,7 +12,9 @@ const String apiId = '7c09b422';
 const String apiUrl = 'https://api.edamam.com';
 
 @ChopperApi()
-abstract class RecipeService extends ChopperService {
+abstract class RecipeService extends ChopperService
+    implements ServiceInterface {
+  @override
   @Get(
       path:
           'search') //@Get is an annotation that tells the generator this is a GET request with a path named search,

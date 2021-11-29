@@ -1,36 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_recipes_with_pref_data/data/models/ingredient.dart';
+import 'package:flutter_recipes_with_pref_data/data/repository.dart';
+import 'package:provider/provider.dart';
 
 class ShoppingList extends StatefulWidget {
   const ShoppingList({Key? key}) : super(key: key);
 
-  // TODO 1
   @override
   State<ShoppingList> createState() => _ShoppingListState();
 }
 
 class _ShoppingListState extends State<ShoppingList> {
   final checkBoxValues = Map<int, bool>();
-  static const ingredients = <String>[];
 
   @override
   Widget build(BuildContext context) {
-    // TODO 2
-    return ListView.builder(
-        itemCount: ingredients.length,
-        itemBuilder: (BuildContext context, int index) {
-          return CheckboxListTile(
-            value: checkBoxValues.containsKey(index) && checkBoxValues[index]!,
-            // TODO 3
-            title: Text(ingredients[index]),
-            onChanged: (newValue) {
-              if (newValue != null) {
-                setState(() {
-                  checkBoxValues[index] = newValue;
-                });
-              }
+    final repository = Provider.of<Repository>(context);
+    return StreamBuilder(
+      stream: repository.watchAllIngredients(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.active) {
+          final ingredients = snapshot.data as List<Ingredient>?;
+
+          if (ingredients == null) {
+            return Container();
+          }
+
+          return ListView.builder(
+            itemCount: ingredients.length,
+            itemBuilder: (BuildContext context, int index) {
+              return CheckboxListTile(
+                value:
+                    checkBoxValues.containsKey(index) && checkBoxValues[index]!,
+                title: Text(ingredients[index].name ?? ''),
+                onChanged: (newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      checkBoxValues[index] = newValue;
+                    });
+                  }
+                },
+              );
             },
           );
-        });
-    // TODO 4
+        } else {
+          return Container();
+        }
+      },
+    );
   }
 }
