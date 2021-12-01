@@ -1,0 +1,200 @@
+import 'dart:async';
+import '../models/models.dart';
+
+import '../repository.dart';
+import 'moor_db.dart';
+
+class MoorRepository extends Repository {
+  //Stores an instance of the Moor RecipeDatabase.
+  late RecipeDatabase recipeDatabase;
+  //Creates a private RecipeDao to handle recipes.
+  late RecipeDao _recipeDao;
+  //Creates a private IngredientDao that handles ingredients.
+  late IngredientDao _ingredientDao;
+
+  //Creates a stream that watches ingredients.
+  Stream<List<Ingredient>>? ingredientStream;
+  //Creates a stream that watches recipes.
+  Stream<List<Recipe>>? recipeStream;
+
+  @override
+  Future<List<Recipe>> findAllRecipes() {
+    //Uses RecipeDao to find all recipes.
+    return _recipeDao.findAllRecipes()
+        //Takes the list of MoorRecipeData items, executing then after findAllRecipes() finishes.
+        .then<List<Recipe>>((List<MoorRecipeData> moorRecipes) {
+      final recipes = <Recipe>[];
+      //For each recipe:
+      moorRecipes.forEach((moorRecipe) async {
+        //Converts the Moor recipe to a model recipe.
+        final recipe = moorRecipeToRecipe(moorRecipe);
+        //Calls the method to get all recipe ingredients, which you’ll define later.
+        if (recipe.id != null) {
+          recipe.ingredients = await findRecipeIngredients(recipe.id!);
+        }
+
+        recipes.add(recipe);
+      });
+      return recipes;
+    });
+  }
+
+  @override
+  Stream<List<Recipe>> watchAllRecipes() {
+    recipeStream ??= _recipeDao.watchAllRecipes();
+
+    return recipeStream!;
+  }
+
+  @override
+  Stream<List<Ingredient>> watchAllIngredients() {
+    if (ingredientStream == null) {
+      //Gets a stream of ingredients.
+      final stream = _ingredientDao.watchAllIngredients();
+      //Maps each stream list to a stream of model ingredients
+      ingredientStream = stream.map((moorIngredients) {
+        final ingredients = <Ingredient>[];
+        //Converts each ingredient in the list to a model ingredient.
+        for (var moorIngredient in moorIngredients) {
+          ingredients.add(moorIngredientToIngredient(moorIngredient));
+        }
+
+        return ingredients;
+      });
+    }
+
+    return ingredientStream!;
+  }
+
+  @override
+  Future<Recipe> findRecipeById(int id) {
+    return _recipeDao
+        .findRecipeById(id)
+        .then((listOfRecipes) => moorRecipeToRecipe(listOfRecipes.first));
+  }
+
+  @override
+  Future<List<Ingredient>> findAllIngredients() {
+    return _ingredientDao
+        .findAllIngredients()
+        .then<List<Ingredient>>((List<MoorIngredientData> moorIngredients) {
+      final ingredients = <Ingredient>[];
+
+      for (var ingredient in moorIngredients) {
+        ingredients.add(moorIngredientToIngredient(ingredient));
+      }
+      return ingredients;
+    });
+  }
+
+  @override
+  Future<List<Ingredient>> findRecipeIngredients(int recipeId) {
+    return _ingredientDao
+        .findRecipeIngredients(recipeId)
+        .then((listOfIngredients) {
+      final ingredients = <Ingredient>[];
+
+      for (var ingredient in listOfIngredients) {
+        ingredients.add(moorIngredientToIngredient(ingredient));
+      }
+      return ingredients;
+    });
+  }
+
+  @override
+  Future<int> insertRecipe(Recipe recipe) {
+    return Future(() async {
+      //Use the recipe DAO to insert a converted model recipe.
+      final id =
+          await _recipeDao.insertRecipe(recipeToInsertableMoorRecipe(recipe));
+
+      if (recipe.ingredients != null) {
+        //Set the recipe ID for each ingredient.
+        for (var ingredient in recipe.ingredients!) {
+          ingredient.recipeId = id;
+        }
+        //Insert all the ingredients. You’ll define these next.
+        insertIngredients(recipe.ingredients!);
+      }
+
+      return id;
+    });
+  }
+
+  @override
+  Future<List<int>> insertIngredients(List<Ingredient> ingredients) {
+    return Future(() {
+      //Checks to make sure you have at least one ingredient.
+      if (ingredients.isEmpty) {
+        return <int>[];
+      }
+
+      final resultIds = <int>[];
+
+      for (var ingredient in ingredients) {
+        //Converts the ingredient.
+        final moorIngredient = ingredientToInsertableMoorIngredient(ingredient);
+
+        //Inserts the ingredient into the database and adds a new ID to the list.
+        _ingredientDao
+            .insertIngredient(moorIngredient)
+            .then((int id) => resultIds.add(id));
+      }
+
+      return resultIds;
+    });
+  }
+
+  @override
+  Future<void> deleteRecipe(Recipe recipe) {
+    if (recipe.id != null) {
+      _recipeDao.deleteRecipe(recipe.id!);
+    }
+
+    return Future.value();
+  }
+
+  @override
+  Future<void> deleteIngredient(Ingredient ingredient) {
+    if (ingredient.id != null) {
+      return _ingredientDao.deleteIngredient(ingredient.id!);
+    } else {
+      return Future.value();
+    }
+  }
+
+  @override
+  Future<void> deleteIngredients(List<Ingredient> ingredients) {
+    for (var ingredient in ingredients) {
+      if (ingredient.id != null) {
+        _ingredientDao.deleteIngredient(ingredient.id!);
+      }
+    }
+
+    return Future.value();
+  }
+
+  @override
+  Future<void> deleteRecipeIngredients(int recipeId) async {
+    //Find all ingredients for the given recipe ID.
+    final ingredients = await findRecipeIngredients(recipeId);
+    //Delete the list of ingredients.
+    return deleteIngredients(ingredients);
+  }
+
+  @override
+  Future init() async {
+    //Creates your database.
+    recipeDatabase = RecipeDatabase();
+
+    //Gets instances of your DAOs.
+    _recipeDao = recipeDatabase.recipeDao;
+    _ingredientDao = recipeDatabase.ingredientDao;
+  }
+
+  @override
+  void close() {
+    //Closes the database.
+    recipeDatabase.close();
+  }
+}

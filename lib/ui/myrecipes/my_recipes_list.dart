@@ -58,14 +58,7 @@ class _MyRecipesListState extends State<MyRecipesList> {
                           backgroundColor: Colors.transparent,
                           foregroundColor: Colors.black,
                           icon: Icons.delete,
-                          onPressed: deleteRecipe(repository, recipe)),
-                      const SlidableAction(
-                        onPressed: null,
-                        backgroundColor: Color(0xFF21B7CA),
-                        foregroundColor: Colors.white,
-                        icon: Icons.share,
-                        label: 'Share',
-                      ),
+                          onPressed: (_) => deleteRecipe(repository, recipe)),
                     ],
                   ),
                   // The end action pane is the one at the right or the bottom side.
@@ -77,7 +70,7 @@ class _MyRecipesListState extends State<MyRecipesList> {
                           backgroundColor: Colors.transparent,
                           foregroundColor: Colors.black,
                           icon: Icons.delete,
-                          onPressed: deleteRecipe(repository, recipe))
+                          onPressed: (_) => deleteRecipe(repository, recipe))
                     ],
                   ),
                   child: Card(
@@ -112,13 +105,13 @@ class _MyRecipesListState extends State<MyRecipesList> {
     );
   }
 
-  Function(BuildContext)? deleteRecipe(Repository repository, Recipe recipe) {
+  void deleteRecipe(Repository repository, Recipe recipe) async {
     if (recipe.id != null) {
       //The repository to delete any recipe ingredients.
-      repository.deleteRecipeIngredients(recipe.id!);
+      await repository.deleteRecipeIngredients(recipe.id!);
       //The repository to delete the recipe.
-      repository.deleteRecipe(recipe);
-      setState(() {});
+      await repository.deleteRecipe(recipe);
+      //setState(() {});
     } else {
       debugPrint('## Recipe id is null');
     }

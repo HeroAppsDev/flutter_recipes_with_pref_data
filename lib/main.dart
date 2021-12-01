@@ -1,20 +1,22 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_recipes_with_pref_data/data/memory_repository.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'data/repository.dart';
 import 'network/recipe_service.dart';
 import 'network/service_interface.dart';
 
+import 'data/moor/moor_repository.dart';
+
 import 'ui/main_screen.dart';
 
 Future<void> main() async {
   _setupLogging();
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+
+  final repository = MoorRepository();
+  await repository.init();
+  runApp(MyApp(repository: repository));
 }
 
 void _setupLogging() {
@@ -25,7 +27,8 @@ void _setupLogging() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  final Repository repository;
+  const MyApp({Key? key, required this.repository}) : super(key: key);
 
   // This widget is the root of your application.
   @override
@@ -34,9 +37,9 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<Repository>(
-          lazy: false,
-          create: (_) => MemoryRepository(),
-        ),
+            lazy: false,
+            create: (_) => repository,
+            dispose: (_, Repository repository) => repository.close()),
         //You add a new provider, which will use the new mock service.
         Provider<ServiceInterface>(
           //Create the MockService and call create() to load the JSON files (notice the .. cascade operator).
